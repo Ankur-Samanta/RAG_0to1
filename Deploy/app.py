@@ -7,30 +7,15 @@ import uuid
 app = FastAPI()
 
 # Directory to store uploaded files and chunks
-UPLOAD_DIR = "uploaded_files"
-CHUNK_DIR = "text_chunks"
+UPLOAD_DIR = "Data/uploaded_files"
+CHUNK_DIR = "Data/text_chunks"
 
 # Ensure directories exist
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 os.makedirs(CHUNK_DIR, exist_ok=True)
 
-def extract_text_from_pdf(pdf_path):
-    """
-    Extracts text from a given PDF file.
-    """
-    doc = fitz.open(pdf_path)
-    text = ""
-    for page in doc:
-        text += page.get_text()
-    return text
-
-def chunk_text(text, chunk_size=500):
-    """
-    Splits text into chunks of a specified size.
-    """
-    words = text.split()
-    for i in range(0, len(words), chunk_size):
-        yield ' '.join(words[i:i+chunk_size])
+from Data_Ingestion.process_pdf import *
+from Data_Ingestion.chunk import *
 
 @app.post("/upload_files/")
 async def upload_files(files: list[UploadFile] = File(...)):
@@ -74,3 +59,9 @@ async def delete_files(file_ids: list[str]):
             
     return JSONResponse(status_code=200, content={"message": "Files and associated chunks deleted successfully."})
 
+
+
+### USAGE INSTRUCTIONS ###
+'''
+run 'uvicorn app:app --reload' in command line
+'''
