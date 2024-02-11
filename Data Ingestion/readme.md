@@ -1,0 +1,3 @@
+- Data Ingestion:
+    - Develop an API endpoint to upload a set of files.
+    - Implement a text extraction and chunking algorithm from PDF files. Write down your considerations.

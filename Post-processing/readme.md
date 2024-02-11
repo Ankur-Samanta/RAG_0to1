@@ -1,0 +1,2 @@
+- Post-processing:
+    - Merge and re-rank the results to improve retrieval performance.

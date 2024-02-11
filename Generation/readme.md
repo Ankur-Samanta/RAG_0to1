@@ -1,0 +1,2 @@
+- Generation:
+    - Call a language model with a prompt template to generate answers to the user questions over the ingested knowledge base.

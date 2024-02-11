@@ -1,0 +1,3 @@
+- Query Processing, given a user query:
+    - Detect the intent of the query to assess if triggering a knowledge base search is necessary. For example, “hello” should not trigger a search.
+    - Transform the query to improve the retrieving for RAG.

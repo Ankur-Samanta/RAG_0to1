@@ -1,0 +1,3 @@
+- Semantic Search:
+    - Design a search mechanism over the ingested files using the processed query.
+    - How would you combine both semantic and keyword results?s
