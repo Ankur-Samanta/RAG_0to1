@@ -4,3 +4,6 @@ python-multipart
 PyMuPDF
 uvicorn
 frontend
+transformers
+nltk
+pyspellchecker
