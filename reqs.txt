@@ -7,3 +7,4 @@ frontend
 transformers
 nltk
 pyspellchecker
+scikit-learn
