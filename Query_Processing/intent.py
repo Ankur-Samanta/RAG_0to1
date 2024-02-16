@@ -9,8 +9,8 @@ def detect_intent(query):
 
 
 def detect_intent_with_model(query):
-    classifier = pipeline("zero-shot-classification")
+    # Specify the model and optionally its revision/version
+    classifier = pipeline("zero-shot-classification", model="facebook/bart-large-mnli")
     candidate_labels = ["informational", "greeting", "question", "command"]
     result = classifier(query, candidate_labels)
     return result["labels"][0]
-

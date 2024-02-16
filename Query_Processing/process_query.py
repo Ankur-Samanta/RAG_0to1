@@ -6,12 +6,12 @@ from Query_Processing.preprocess_query import preprocess_query
 
 def analyze_query(query):
     #intent = detect_intent(query)  
+    query = preprocess_query(query)
     intent = detect_intent_with_model(query)
     
     if intent == "informational" or "question":
-        preprocessed_query = preprocess_query(query)
         # Further processing like synonym expansion or spell correction
         # Then, use the processed query for retrieval
-        return preprocessed_query
+        return query, True
     else:
-        return None
+        return query, False

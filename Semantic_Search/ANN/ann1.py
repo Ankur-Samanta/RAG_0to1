@@ -36,14 +36,14 @@ class SimpleANN:
 
 # Generate some random embeddings
 np.random.seed(42)
-embeddings = np.random.rand(100, 5)  # 100 points in 5-dimensional space
+embeddings = np.random.rand(500, 768)  # 100 points in 5-dimensional space
 
 # Index embeddings
-ann = SimpleANN(n_bins=5)
+ann = SimpleANN(n_bins=50)
 ann.index(embeddings)
 
 # Perform a search
-query_embedding = np.random.rand(5)  # Random query in the same space
+query_embedding = np.random.rand(768)  # Random query in the same space
 nearest_indices, distances = ann.search(query_embedding, k=5)
 
 print(f"Nearest indices: {nearest_indices}")

@@ -8,8 +8,12 @@ class LLM():
         self.api_key = api_key
         self.client = MistralClient(api_key=self.api_key)
 
-    def chat(self, prompt):
+    def rag_chat(self, prompt):
         return self.extract_content(self.client.chat(model=self.model, messages=self.construct_message_RAG(prompt)))    
+    
+    def chat(self, prompt):
+        print(prompt)
+        return self.extract_content(self.client.chat(model=self.model, messages=self.construct_message_reg(prompt)))    
         
     def stream(self, prompt):
         return [self.extract_content(completion) for completion in self.client.chat_stream(model=self.model, messages=self.construct_message_RAG(prompt))]
@@ -19,6 +23,13 @@ class LLM():
         messages = [
             ChatMessage(role="system", content="You are a helpful chatbot assistant who can accurately answer questions, and can reference information from sources provided by the user."),
             ChatMessage(role="user", content=prompt)
+        ]
+        return messages
+    
+    def construct_message_reg(self, prompt):
+        messages = [
+            ChatMessage(role="system", content="You are a helpful chatbot assistant."),
+            ChatMessage(role="user", content=prompt)    
         ]
         return messages
     

@@ -8,3 +8,7 @@ transformers
 nltk
 pyspellchecker
 scikit-learn
+sentence-transformers
+pyspellchecker
+cohere
+mistralai

@@ -12,37 +12,65 @@ class Node:
         self.doc_id=doc_id
         # Initialize neighbors for all layers up to the graph's max_layer
         self.neighbors = {i: [] for i in range(max_layer + 1)}
-
-
+        
 
 class HNSW:
     def __init__(self, initial_dataset_size):
-        self.nodes = []
-        self.entry_point = None
-        self.dataset_size = initial_dataset_size
-        self.max_layer = self.calculate_max_layer(initial_dataset_size)
-        self.M = self.initial_M_value()  # Define based on empirical testing
+        self.initial_dataset_size = initial_dataset_size
+        self.reset_index()
+        self.reindex_threshold = 1.5  # Trigger re-index when size is 150% of the initial or last re-indexed size
 
-    def update_config(self, new_dataset_size):
-            self.dataset_size = new_dataset_size
-            self.max_layer = self.calculate_max_layer(new_dataset_size)
-            
+    def update_parameters(self, new_dataset_size):
+        self.dataset_size = new_dataset_size
+        self.max_layer = self.calculate_max_layer(new_dataset_size)
+        # Optionally adjust M based on new insights or benchmarking
+        self.M = self.calculate_M()  # Or a new method to calculate M dynamically
+
     def calculate_max_layer(self, dataset_size):
         return int(np.log2(dataset_size))  # Example rule, adjust as needed
 
-    def initial_M_value(self):
-        return 16  # Placeholder, determine optimal value through testing
+    def calculate_M(self):
+        # Example dynamic calculation of M based on dataset size
+        # This is a placeholder: Adjust the formula according to your requirements
+        return max(30, min(30, int(np.sqrt(self.dataset_size))))
+
+    def reset_index(self):
+        """Resets the HNSW index to its initial state."""
+        self.nodes = []
+        self.entry_point = None
+        self.dataset_size = self.initial_dataset_size
+        self.max_layer = self.calculate_max_layer(self.initial_dataset_size)
+        self.M = self.calculate_M()
+        self.node_map = {}  # Resetting the map of unique keys to node references
         
+    def reindex(self):
+        # Infer new dataset size from the length of unique node keys
+        new_dataset_size = len(self.node_map)
+        
+        # Store current data points
+        # Assuming data, id, and doc_id are enough to reconstruct each node
+        data_points = [(node.data, node.id, node.doc_id) for node in self.nodes]
+        
+        # Reset the index to clear the existing structure
+        self.reset_index()
+        
+        # Update parameters based on the new dataset size
+        self.update_parameters(new_dataset_size)
+        
+        # Re-add all the data points to the index with updated parameters
+        for data, id, doc_id in data_points:
+            self.add_point(data, id, doc_id)
+    
     def euclidean_distance(self, a, b):
         return distance.euclidean(a.data, b.data)
-        
-    def _get_layer(self):
-        mL = 1 / np.log(self.M)
-        l = 0
-        while np.random.rand() < np.exp(-l / mL) and l < self.max_layer:
-            l += 1
-        return l
 
+    def _get_layer(self):
+        # Probabilistic layer assignment. Adjust p value as needed.
+        p = 0.5
+        layer = 0
+        while np.random.rand() < p and layer < self.max_layer:
+            layer += 1
+        return layer
     
     def _select_neighbors_heuristic(self, candidates, M):
         # Simplified heuristic: sort by distance and select top M
@@ -103,24 +131,54 @@ class HNSW:
 
     
     def add_point(self, data, id, doc_id=None):
-        node_layer = self._get_layer()
-        new_node = Node(data, id, node_layer, doc_id=doc_id)
-        self._insert_node(new_node)
-        if self.entry_point is None or node_layer > self.entry_point.max_layer:
-            self.entry_point = new_node
-    
+        unique_key = (doc_id, id)
+        
+        # Check if the node already exists in the node_map
+        if unique_key in self.node_map:
+            # print(f"Node with doc_id={doc_id}, id={id} already exists. Updating data.")
+            existing_node = self.node_map[unique_key]
+            existing_node.data = data
+            # Perform any additional updates required
+        else:
+            node_layer = self._get_layer()
+            new_node = Node(data, id, node_layer, doc_id=doc_id)
+            self._insert_node(new_node)
+            
+            # Update entry point if necessary
+            if self.entry_point is None or node_layer > self.entry_point.max_layer:
+                self.entry_point = new_node
+            
+            # Add the new node reference to both self.nodes and self.node_map
+            self.nodes.append(new_node)
+            self.node_map[unique_key] = new_node
+            
+            # Check if re-indexing is needed
+            if len(self.node_map) > self.reindex_threshold * self.dataset_size:
+                print("Triggering re-index.")
+                self.reindex()
+
+        
     def search_knn(self, query_data, k, ef=10):
-        query_node = Node(query_data, -1, 0)
+        if not self.entry_point:
+            return []  # Handle case with no entry point
+        query_node = Node(query_data, -1, 0, None)
         current_node = self.entry_point
-        for l in range(self.max_layer, -1, -1):
+        visited = set([self.entry_point.id])  # Initialize with entry point ID
+        candidates = []
+
+        for l in range(min(self.max_layer, current_node.max_layer), -1, -1):  # Adjusted to handle dynamic layers
             while True:
-                closer_node = min(
-                    current_node.neighbors[l],
-                    key=lambda n: self.euclidean_distance(query_node, n),
-                    default=None
-                )
-                if closer_node and self.euclidean_distance(query_node, closer_node) < self.euclidean_distance(query_node, current_node):
+                closer_node = None
+                min_distance = float('inf')
+                for neighbor in current_node.neighbors.get(l, []):
+                    if neighbor.id not in visited:
+                        distance = self.euclidean_distance(query_node, neighbor)
+                        if distance < min_distance:
+                            closer_node = neighbor
+                            min_distance = distance
+                if closer_node:
                     current_node = closer_node
+                    visited.add(closer_node.id)
                 else:
                     break
         
@@ -130,7 +188,7 @@ class HNSW:
         
         # Return top-k results
         return [n for n, _ in sorted(candidates, key=lambda x: x[1])[:k]]
-    
+            
     def get_text_from_node(self, node, chunk_dir):
         with open(f"{os.path.join(chunk_dir, node.doc_id)}/chunk_{node.id}.txt", "r", encoding="utf-8") as chunk_file:
             return chunk_file.read()

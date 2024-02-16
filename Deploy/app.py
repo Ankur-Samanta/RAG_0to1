@@ -24,8 +24,7 @@ PDF = PDF_Handler()
 
 # indexing for vector search
 from Semantic_Search.ANN.hnsw import HNSW
-ann = HNSW()
-
+ann = HNSW(initial_dataset_size=650)
 # processing query
 from Query_Processing.process_query import analyze_query
 
@@ -35,7 +34,21 @@ process = Process_Prompt()
 
 # prompt completion generation module
 from Generation.generation import LLM
+model = SentenceTransformer('all-MiniLM-L6-v2')
 rag = LLM()
+
+@app.on_event("startup")
+async def load_index():
+    global ann
+    filename = 'path/to/your/index/file'
+    # Attempt to load the index; if it doesn't exist, initialize it
+    if os.path.isfile(filename):
+        ann = HNSW.load_index(filename=filename)
+    else:
+        # Initialize the index if the file doesn't exist
+        print("loading index")
+        ann.update_index_from_chunk_dir(CHUNK_DIR)
+        print("index loaded")
 
 @app.post("/upload_files/")
 async def upload_files(files: list[UploadFile] = File(...)):
@@ -50,6 +63,7 @@ async def upload_files(files: list[UploadFile] = File(...)):
         # Extract text and chunk it
         PDF.chunk_pdf(file_path, chunk_path)
         ann.update_index_from_doc_dir(chunk_dir=CHUNK_DIR, doc_id=file_id, model=model)
+        print("index updated")
                 
     return JSONResponse(status_code=200, content={"message": "Files uploaded and processed successfully."})
 
@@ -75,29 +89,28 @@ async def delete_files(file_ids: list[str]):
             
     return JSONResponse(status_code=200, content={"message": "Files and associated chunks deleted successfully."})
 
-def generate(prompt: str) -> str:
-    # Placeholder for the actual implementation
-    # This function takes a prompt and returns a generated string
-    return "Generated response based on the prompt."
-
 @app.post("/generate_response/")
 async def generate_response(prompt: str):
     try:
         # Call the generate function with the user-provided prompt
 
         # analyze and pre-process prompt
-        query = analyze_query(prompt)
-        
-        # retrieving relevant documents
-        query_embedding = model.encode(query)
-        nearest_nodes = ann.search_knn(query_embedding, k=5)
-        retrieved_documents = [ann.get_text_from_node(node, CHUNK_DIR) for node in nearest_nodes]
-        
-        # post-process/format prompt and rerank documents
-        processed_prompt = process.process(prompt, retrieved_documents)
-        
+        query, use_rag = analyze_query(prompt)
+
+        if use_rag:
+            print("use rag")
+            # retrieving relevant documents
+            query_embedding = model.encode(query)
+            nearest_nodes = ann.search_knn(query_embedding, k=5)
+            retrieved_documents = [ann.get_text_from_node(node, CHUNK_DIR) for node in nearest_nodes]
+            
+            # post-process/format prompt and rerank documents
+            processed_prompt = process.process(query, retrieved_documents)
+            completion = rag.rag_chat(processed_prompt)
+        else:
+            print("no rag")
+            completion = rag.chat(query)
         # generate response
-        completion = rag.chat(processed_prompt)
 
         # Return the generated response to the user
         return JSONResponse(status_code=200, content={"generated_response": completion})
@@ -106,9 +119,8 @@ async def generate_response(prompt: str):
         return HTTPException(status_code=500, detail=str(e))
 
 
-model = SentenceTransformer('all-MiniLM-L6-v2')
 
-ann = HNSW.load_index()
+# ann = HNSW.load_index()
 
 ### USAGE INSTRUCTIONS ###
 '''

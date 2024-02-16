@@ -36,6 +36,6 @@ def preprocess_query(query):
     # Optionally, expand synonyms for key terms
     # This step is context-dependent and might not be applied universally
     words = corrected_query.split()
-    expanded_query = " ".join([expand_synonyms(word)[0] if expand_synonyms(word) else word for word in words])
+    expanded_query = corrected_query# " ".join([expand_synonyms(word)[0] if expand_synonyms(word) else word for word in words])
     
     return expanded_query

@@ -2,7 +2,7 @@ from sklearn.cluster import KMeans
 import numpy as np
 from itertools import product
 from sklearn.metrics.pairwise import euclidean_distances
-
+import os
 
 class AdaptiveGridANN:
     def __init__(self, embeddings, n_clusters=None, n_quantiles=10, predefined_bins=None):
@@ -105,19 +105,35 @@ class AdaptiveGridANN:
         # Implement logic to check if a bin is valid based on predefined bins or quantiles for adaptive bins
         # This is a placeholder function; you'll need to adapt it based on your grid structure and data distribution
         return True  # Placeholder
+    
+    def update_index_from_chunk_dir(self, directory_path, doc_id, model):
+        directory_path = os.path.join(directory_path, doc_id)
+        documents = []
+        for i, filename in enumerate(os.listdir(directory_path)):
+            file_path = os.path.join(directory_path, filename)
+            if os.path.isfile(file_path):
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    text = file.read()
+                    documents.append(text)
+        embeddings = model.encode(documents)
+        return embeddings
+                    
 
 # Example usage
 np.random.seed(42)
-embeddings = np.random.rand(100, 5)  # 100 points in a 5-dimensional space
+dim=768
+embeddings = np.random.rand(350, dim)  # 100 points in a 5-dimensional space
 # Initialize with predefined bins
 #ann_predefined = AdaptiveGridANN(embeddings, predefined_bins=np.array([10, 10, 10, 10, 10]))
 
 # Initialize with adaptive bins through clustering
-ann_adaptive = AdaptiveGridANN(embeddings, n_clusters=5, n_quantiles=1) #10
+ann_adaptive = AdaptiveGridANN(embeddings, n_clusters=100, n_quantiles=10) #10
 ann_adaptive.index(embeddings)
 
+print("Start")
+
 # Query
-query_embedding = np.random.rand(5)
+query_embedding = np.random.rand(dim)
 k = 5
 nearest_indices, distances = ann_adaptive.search(query_embedding, k)
 
