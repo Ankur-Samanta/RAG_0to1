@@ -13,7 +13,7 @@ model = SentenceTransformer('all-MiniLM-L6-v2')
 
 
 ann = HNSW(initial_dataset_size=655)
-ann.update_index_from_doc_dir(chunk_dir=chunk_dir, doc_id=doc_id, model=model)
+ann.update_index_from_doc_dir(chunk_dir=chunk_dir, doc_id=doc_id)
 
 ann.save_index("Data/index/ann_index.pkl")
 

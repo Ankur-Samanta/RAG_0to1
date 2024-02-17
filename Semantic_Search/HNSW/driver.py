@@ -2,7 +2,7 @@ from sentence_transformers import SentenceTransformer
 import os
 import fitz
 
-from Semantic_Search.ANN.hnsw import *
+from Semantic_Search.HNSW.hnsw import *
 from Data_Ingestion.chunk import *
 from Data_Ingestion.process_pdf import *
 

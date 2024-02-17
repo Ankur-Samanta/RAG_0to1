@@ -3,6 +3,8 @@ from scipy.spatial import distance
 import math
 import pickle
 import os
+from sentence_transformers import SentenceTransformer
+
 
 class Node:
     def __init__(self, data, id, max_layer, doc_id=None):
@@ -21,7 +23,8 @@ class HNSW:
         self.entry_point = None
         self.dataset_size = initial_dataset_size
         self.max_layer = self.calculate_max_layer(initial_dataset_size)
-        self.M = self.initial_M_value()  # Define based on empirical testing
+        self.M = self.calculate_M()  # Define based on empirical testing
+        self.model = SentenceTransformer('all-MiniLM-L6-v2')
 
     def update_config(self, new_dataset_size):
             self.dataset_size = new_dataset_size
@@ -30,8 +33,10 @@ class HNSW:
     def calculate_max_layer(self, dataset_size):
         return int(np.log2(dataset_size))  # Example rule, adjust as needed
 
-    def initial_M_value(self):
-        return 16  # Placeholder, determine optimal value through testing
+    def calculate_M(self):
+        # Example dynamic calculation of M based on dataset size
+        # This is a placeholder: Adjust the formula according to your requirements
+        return max(16, min(30, int(np.sqrt(self.dataset_size))))
         
     def euclidean_distance(self, a, b):
         return distance.euclidean(a.data, b.data)
@@ -42,7 +47,6 @@ class HNSW:
         while np.random.rand() < np.exp(-l / mL) and l < self.max_layer:
             l += 1
         return l
-
     
     def _select_neighbors_heuristic(self, candidates, M):
         # Simplified heuristic: sort by distance and select top M
@@ -135,14 +139,14 @@ class HNSW:
         with open(f"{os.path.join(chunk_dir, node.doc_id)}/chunk_{node.id}.txt", "r", encoding="utf-8") as chunk_file:
             return chunk_file.read()
             
-    def update_index_from_doc_dir(self, chunk_dir, doc_id, model):
+    def update_index_from_doc_dir(self, chunk_dir, doc_id):
         directory_path = os.path.join(chunk_dir, doc_id)
         for i, filename in enumerate(os.listdir(directory_path)):
             file_path = os.path.join(directory_path, filename)
             if os.path.isfile(file_path):
                 with open(file_path, 'r', encoding='utf-8') as file:
                     text = file.read()
-                    emb = model.encode(text)
+                    emb = self.model.encode(text)
                     self.add_point(emb, i, doc_id=doc_id)
         return 
     
@@ -150,7 +154,7 @@ class HNSW:
         for doc_id in os.listdir(chunk_dir):
             path = os.path.join(chunk_dir, doc_id)
             if os.path.isdir(path):
-                self.update_index_from_doc_dir(doc_id=doc_id)
+                self.update_index_from_doc_dir(chunk_dir=chunk_dir, doc_id=doc_id)
 
     def save_index(self, filename):
         with open(filename, 'wb') as file:
