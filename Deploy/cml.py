@@ -34,7 +34,7 @@ def main():
             _, prompt = user_input.split(" ", 1)
             response = generate_response(prompt)
             if response.status_code == 200:
-                print("Success:", response.json())
+                print(response.json())
             else:
                 print("Error:", response.status_code, response.text)
         elif user_input.startswith("/upload"):

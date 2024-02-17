@@ -23,10 +23,12 @@ from Data_Ingestion.chunk import *
 PDF = PDF_Handler()
 
 # indexing for vector search
-from Semantic_Search.ANN.hnsw import HNSW
+from Semantic_Search.HNSW.hnsw_retrieval import HNSW
 ann = HNSW(initial_dataset_size=650)
 # processing query
-from Query_Processing.process_query import analyze_query
+from Query_Processing.preprocess_query import preprocess_query
+from Query_Processing.intent import Intent
+intent = Intent()
 
 # rerank documents and format prompt for rag
 from Post_Processing.process_prompt import Process_Prompt
@@ -48,6 +50,7 @@ async def load_index():
         # Initialize the index if the file doesn't exist
         print("loading index")
         ann.update_index_from_chunk_dir(CHUNK_DIR)
+        print(ann.nodes)
         print("index loaded")
 
 @app.post("/upload_files/")
@@ -95,8 +98,8 @@ async def generate_response(prompt: str):
         # Call the generate function with the user-provided prompt
 
         # analyze and pre-process prompt
-        query, use_rag = analyze_query(prompt)
-
+        query = preprocess_query(prompt)
+        use_rag = intent.use_rag(query)
         if use_rag:
             print("use rag")
             # retrieving relevant documents
