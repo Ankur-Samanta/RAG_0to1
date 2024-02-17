@@ -23,8 +23,8 @@ from Data_Ingestion.chunk import *
 PDF = PDF_Handler()
 
 # indexing for vector search
-from Semantic_Search.HNSW.hnsw_retrieval import HNSW
-ann = HNSW(initial_dataset_size=650)
+from Semantic_Search.HNSW.hnsw_retr import HNSWTextRetrieval
+ann = HNSWTextRetrieval()
 # processing query
 from Query_Processing.preprocess_query import preprocess_query
 from Query_Processing.intent import Intent
