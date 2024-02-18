@@ -6,7 +6,9 @@ class Process_Prompt():
         
     def process(self, query, docs):
         reranked_text_chunks = self.RR.rerank(query=query, docs=docs)
+        print("reranked")
         formatted_prompt = self.construct_prompt(base_query=query, text_chunks=reranked_text_chunks)
+        return formatted_prompt
         
     def construct_prompt(self, base_query, text_chunks):
         # Assuming 'text_chunks' contains the texts from reranked documents

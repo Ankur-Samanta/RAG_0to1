@@ -6,6 +6,7 @@ import re
 import nltk
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+import pickle
 # nltk.download('punkt') # Uncomment if you haven't downloaded NLTK tokenizers
 # nltk.download('stopwords') # Uncomment if you haven't downloaded NLTK stopwords
 
@@ -50,6 +51,7 @@ class HNSWTextRetrieval(HNSW):
                 self.load_and_encode_texts(chunk_dir=chunk_dir, doc_id=doc_id)
 
     def search(self, query_text, K=5, ef=10, chunk_dir=None):
+        # print(query_text)
         query_preprocessed = self.preprocess_text(query_text)
         query_vector = self.model.encode(query_preprocessed)  # Convert query to embedding
         nearest_neighbor_ids = self.k_nn_search(query_vector, K, ef)  # Search in HNSW
@@ -71,19 +73,46 @@ class HNSWTextRetrieval(HNSW):
         self.next_id = 0
         self.id_to_text = {}  # Clear the mapping of node IDs to text chunks
 
+    def save_index(self, filepath):
+        """Save the HNSW index and text mapping to a file."""
+        data_to_save = {
+            "node_data": self.node_data,
+            "nodes": self.nodes,
+            "levels": self.levels,
+            "edges": self.edges,
+            "enter_point": self.enter_point,
+            "max_level": self.max_level,
+            "next_id": self.next_id,
+            "id_to_text": self.id_to_text,
+        }
+        with open(filepath, 'wb') as f:
+            pickle.dump(data_to_save, f)
 
-# Example usage
-hnsw_text_retrieval = HNSWTextRetrieval(M=10, Mmax=15, efConstruction=200, mL=1.0)
+    def load_index(self, filepath):
+        """Load the HNSW index and text mapping from a file."""
+        with open(filepath, 'rb') as f:
+            data_loaded = pickle.load(f)
+            self.node_data = data_loaded["node_data"]
+            self.nodes = data_loaded["nodes"]
+            self.levels = data_loaded["levels"]
+            self.edges = data_loaded["edges"]
+            self.enter_point = data_loaded["enter_point"]
+            self.max_level = data_loaded["max_level"]
+            self.next_id = data_loaded["next_id"]
+            self.id_to_text = data_loaded["id_to_text"]
 
-chunk_dir = "Data/text_chunks/"
+# # Example usage
+# hnsw_text_retrieval = HNSWTextRetrieval(M=10, Mmax=15, efConstruction=200, mL=1.0)
 
-hnsw_text_retrieval.update_index(chunk_dir)
-hnsw_text_retrieval.reset_index(chunk_dir)
-hnsw_text_retrieval.update_index(chunk_dir)
+# chunk_dir = "Data/text_chunks/"
+
+# hnsw_text_retrieval.update_index(chunk_dir)
+# hnsw_text_retrieval.reset_index(chunk_dir)
+# hnsw_text_retrieval.update_index(chunk_dir)
 
 
-query_text = "reliable individual level neural markers high level language processing necessary precursor relating neural variability behavioral genetic variability neuroimage 139 74 93 2016 192 fedorenko e thompson schill l"
-nearest_texts = hnsw_text_retrieval.search(query_text, K=5, ef=10, chunk_dir=chunk_dir)
-for text in nearest_texts:
-    print(text)
-    print("\n")
+# query_text = "reliable individual level neural markers high level language processing necessary precursor relating neural variability behavioral genetic variability neuroimage 139 74 93 2016 192 fedorenko e thompson schill l"
+# nearest_texts = hnsw_text_retrieval.search(query_text, K=5, ef=10, chunk_dir=chunk_dir)
+# for text in nearest_texts:
+#     print(text)
+#     print("\n")

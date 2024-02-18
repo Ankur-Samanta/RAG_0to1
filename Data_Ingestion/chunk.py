@@ -9,6 +9,7 @@ class Chunk():
         Splits text into chunks of a specified size in characters, attempting to respect sentence boundaries.
         """
         # Split the text into sentences
+        print(text)
         sentences = re.split(r'(?<=[.!?]) +', text)
         
         chunk = ""
