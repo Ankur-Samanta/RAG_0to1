@@ -21,7 +21,6 @@ os.makedirs(CHUNK_DIR, exist_ok=True)
 
 # file processing and chunking
 from Data_Ingestion.process_pdf import *
-from Data_Ingestion.chunk import *
 PDF = PDF_Handler()
 
 # file mapping (uuid id to pdf name and nickname)
@@ -29,7 +28,18 @@ files_mapping = {}
 
 # indexing for vector search
 from Semantic_Search.HNSW.hnsw_retr import HNSWTextRetrieval
-ann = HNSWTextRetrieval(M=10, Mmax=15, efConstruction=200, mL=1.0) # NOTE: these parameters have not been optimized, so retrieval results will likely be suboptimal
+from Semantic_Search.FAISS.faiss_retr import FAISSTextRetrieval
+
+search_method = os.getenv('SEARCH_METHOD', 'FAISS').upper()
+
+if search_method == 'HNSW':
+    print("using HNSW for retrieval")
+    ann = HNSWTextRetrieval(M=10, Mmax=15, efConstruction=200, mL=1.0) # NOTE: these parameters have not been optimized, so retrieval results will likely be suboptimal
+elif search_method == 'FAISS':
+    print("using FAISS for retrieval")
+    ann = FAISSTextRetrieval()  # Out-of-the-box FAISS ANN implementation as benchmark
+else:
+    raise ValueError("Unsupported SEARCH_METHOD environment variable value")
 
 # processing query
 from Query_Processing.preprocess_query import preprocess_query
@@ -42,11 +52,12 @@ process = Process_Prompt()
 
 # prompt completion generation module
 from Generation.generation import LLM
-model = SentenceTransformer('all-MiniLM-L6-v2')
 rag = LLM()
 
 def update_files_mapping_from_directory(upload_dir):
-    # List all PDF files in the upload directory
+    """
+    Scans the upload directory for PDF files and updates the file mapping.
+    """
     for filename in os.listdir(upload_dir):
         if filename.endswith(".pdf"):
             # Extract file ID from the filename (assuming file ID + '.pdf' is the filename)
@@ -70,6 +81,9 @@ def update_files_mapping_from_directory(upload_dir):
 
 @app.on_event("startup")
 async def load_index():
+    """
+    Loads or initializes the document index at application startup.
+    """
     global ann
     filename = 'path/to/your/index/file'
     # Attempt to load the index; if it doesn't exist, initialize it
@@ -86,6 +100,9 @@ async def load_index():
 
 @app.post("/upload_files/")
 async def upload_files(files: List[UploadFile] = File(...), nicknames: List[str] = File(...)):
+    """
+    Endpoint for uploading files. Each file must have a corresponding nickname.
+    """
     if len(files) != len(nicknames):
         raise HTTPException(status_code=400, detail="Each file must have a corresponding nickname.")
 
@@ -117,6 +134,9 @@ async def upload_files(files: List[UploadFile] = File(...), nicknames: List[str]
 
 @app.get("/list_files/")
 async def list_files():
+    """
+    Endpoint to list all files that have been uploaded and processed.
+    """
     files_list = []
     for file_id, file_info in files_mapping.items():
         files_list.append({
@@ -129,9 +149,15 @@ async def list_files():
 
 
 class DeleteRequest(BaseModel):
+    '''
+    class definition for the input to delete_files
+    '''
     ids: List[str]
 
 def get_nicknames():
+    '''
+    Function to retrieve all the nicknames of files currently stored.
+    '''
     nicknames = []    
     for file_id, file_info in files_mapping.items():
         nicknames.append(file_info["nickname"])
@@ -139,7 +165,9 @@ def get_nicknames():
 
 @app.delete("/delete_files/")
 async def delete_files(delete_request: DeleteRequest):
-    # Your deletion logic here
+    """
+    Endpoint to delete files based on a list of nicknames or IDs.
+    """
     nicknames = delete_request.ids
     if nicknames[0] == "all":
         nicknames = get_nicknames()
@@ -187,20 +215,20 @@ async def delete_files(delete_request: DeleteRequest):
 
 @app.post("/generate_response/")
 async def generate_response(prompt: str):
+    """
+    Endpoint to generate a response to a given prompt, using RAG if appropriate. Will print descriptive messages (i.e whether the query passed in required rag or not, or what chunks were retrieved) to the server console
+    """
     try:
-        # Call the generate function with the user-provided prompt
-
         # analyze and pre-process prompt
         query = preprocess_query(prompt)
         use_rag = intent.use_rag(query)
         if use_rag:
             print("use rag")
             # retrieving relevant documents
-            retrieved_documents = ann.search(query, K=5, chunk_dir=CHUNK_DIR)
+            retrieved_documents = ann.search(query, K=10, chunk_dir=CHUNK_DIR)
             # post-process/format prompt and rerank documents
-            print(retrieved_documents)
+            print("retrieved_documents: ", retrieved_documents)
             processed_prompt = process.process(query, retrieved_documents)
-            print(processed_prompt)
             completion = rag.rag_chat(processed_prompt)
         else:
             print("no rag")
@@ -213,10 +241,23 @@ async def generate_response(prompt: str):
         # Handle potential errors
         return HTTPException(status_code=500, detail=str(e))
 
-# ann = HNSW.load_index()
 
 ### USAGE INSTRUCTIONS ###
 '''
+Navigate to the Deploy/ subdirectory.
+
+Setting the retrieval method: You can pick between a custom HNSW implementation, and a FAISS implementation
+For HNSW:
+export SEARCH_METHOD=HNSW
+For FAISS:
+export SEARCH_METHOD=FAISS
+
+type the above command into the command line in the directory you are running the application
+
+To run the application and setup the server:
+
 run 'uvicorn app:app --reload' in command line
+
 uvicorn app:app --reload
+
 '''

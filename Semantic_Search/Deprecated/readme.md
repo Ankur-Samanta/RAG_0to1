@@ -1,0 +1,2 @@
+This directory contains deprecated versions of ANN implementations (algos inside ANN/)
+The files in this level of the directory (not in ANN/) are miscellaneous driver files for the various implementations

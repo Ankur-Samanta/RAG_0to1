@@ -2,13 +2,13 @@ fastapi
 uvicorn
 python-multipart
 PyMuPDF
-uvicorn
 frontend
 transformers
 nltk
 pyspellchecker
 scikit-learn
-sentence-transformers
-pyspellchecker
+sentence_transformers
 cohere
 mistralai
+faiss-cpu
+mistral

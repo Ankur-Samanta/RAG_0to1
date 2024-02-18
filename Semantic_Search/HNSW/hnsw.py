@@ -1,3 +1,9 @@
+'''
+Note: This is an approximate and simplified implementation of the HNSW (Hierarchical Navigable Small World graphs) approximate nearest neighbor search algorithm:
+Paper: https://arxiv.org/pdf/1603.09320.pdf
+'''
+
+
 import numpy as np
 import math
 import heapq
@@ -6,6 +12,15 @@ import os
 
 class HNSW:
     def __init__(self, M=10, Mmax=15, efConstruction=200, mL=1.0):
+        """
+        Initialize the HNSW graph with default or user-defined parameters.
+
+        Parameters:
+        - M (int): The maximum number of outgoing connections in the layer of the graph.
+        - Mmax (int): The maximum number of connections for each element at the base layer.
+        - efConstruction (int): The size of the dynamic candidate list during insertion/search.
+        - mL (float): The level generation factor, influences the distribution of elements across layers.
+        """
         self.M = M  # Max number of connections for each element per layer
         self.Mmax = Mmax  # Maximum number of connections for each element per layer
         self.efConstruction = efConstruction  # Size of the dynamic candidate list
@@ -19,6 +34,14 @@ class HNSW:
         self.next_id = 0  # To generate unique IDs
 
     def _add_node(self, node_id, level, neighbors):
+        """
+        Adds a node and its connections to the graph.
+
+        Parameters:
+        - node_id (int): The ID of the node being added.
+        - level (int): The level of the node.
+        - neighbors (list): A list of neighbor node IDs to connect with.
+        """
         # Initialize node's levels and edges if not already done
         self.levels[node_id] = level
         if node_id not in self.edges:
@@ -49,16 +72,44 @@ class HNSW:
 
 
     def _random_level(self):
+        """
+        Generates a random level for a new node based on the level generation factor (mL).
+
+        Returns:
+        - int: The randomly selected level for the new node.
+        """
         lvl = int(-math.log(np.random.uniform()) * self.mL)
         return lvl
 
     def _distance(self, a_id, b_id):
+        """
+        Computes the Euclidean distance between two nodes based on their data (vector embeddings).
+
+        Parameters:
+        - a_id (int): Node ID of the first node.
+        - b_id (int): Node ID of the second node.
+
+        Returns:
+        - float: The Euclidean distance between the two nodes.
+        """
         a = self.node_data[a_id]
         b = self.node_data[b_id]
         return np.linalg.norm(a-b)
 
 
     def _search_layer(self, q_id, ep_id, ef, lc):
+        """
+        Searches for the nearest neighbors of a query node in a specific layer.
+
+        Parameters:
+        - q_id (int): The query node ID.
+        - ep_id (int): The entry point node ID for the search.
+        - ef (int): The size of the dynamic candidate list.
+        - lc (int): The layer at which the search is conducted.
+
+        Returns:
+        - list: A list of the nearest neighbor IDs.
+        """
         v = set()  # Visited nodes
         C = []  # Candidates as a min heap
         heapq.heappush(C, (0, ep_id))  # Distance to itself is 0
@@ -89,6 +140,17 @@ class HNSW:
 
 
     def _select_neighbors_simple(self, q_id, C_ids, M):
+        """
+        Selects the top M nearest neighbors from a candidate list based on their distances to the query node.
+
+        Parameters:
+        - q_id (int): The query node ID.
+        - C_ids (list): A list of candidate node IDs.
+        - M (int): The number of neighbors to select.
+
+        Returns:
+        - list: A list of the selected neighbor IDs.
+        """
         #print("C_ids", C_ids)
         distances = [(c_id, self._distance(q_id, c_id)) for c_id in C_ids]
         #print("dist", distances)
@@ -98,45 +160,64 @@ class HNSW:
         return selected_ids
     
     def insert(self, point_data):
+        """
+        Inserts a new node with the given data into the graph. This method automatically assigns a unique ID
+        to the new node, determines its level based on the probabilistic distribution, and establishes connections
+        to existing nodes in the graph to maintain the HNSW structure.
+
+        Parameters:
+        - point_data (np.ndarray): The data (vector embedding) associated with the node to be inserted.
+
+        Returns:
+        - int: The unique ID assigned to the newly inserted node.
+        """
+        # Assign a unique ID to the new node and store its data.
         node_id = self.next_id
-        self.next_id += 1
+        self.next_id += 1  # Increment the ID counter for the next node.
         self.node_data[node_id] = point_data
-        self.nodes.append(node_id)  # Add this line to include the node ID in the nodes list
+        self.nodes.append(node_id)  # Track the new node's ID.
 
+        # If this is the first node, initialize the graph with this node as the entry point.
         if not self.enter_point:
-            self.levels[node_id] = 0
-            self.edges[node_id] = {0: set()}
-            self.enter_point = node_id
-            self.max_level = 0
-            return node_id
+            self.levels[node_id] = 0  # The first node starts at level 0.
+            self.edges[node_id] = {0: set()}  # Initialize its edges with an empty set at level 0.
+            self.enter_point = node_id  # Set this node as the entry point for the graph.
+            self.max_level = 0  # This is currently the highest level in the graph.
+            return node_id  # Return the ID of the first node.
 
+        # Determine the level of the new node based on a random distribution.
         l = self._random_level()
-        
-        # Ensure that all levels are initialized for the new node up to its level, including intermediate levels
+
+        # Initialize the node's level and edges structure.
         self.levels[node_id] = l
         if node_id not in self.edges:
             self.edges[node_id] = {}
         for i in range(l + 1):
             if i not in self.edges[node_id]:
                 self.edges[node_id][i] = set()
-        
+
+        # If the node's level is higher than the current max level, update the graph's max level and entry point.
         if l > self.max_level:
             self.max_level = l
             self.enter_point = node_id
 
+        # Start the connection process from the current entry point and max level.
         ep = self.enter_point
         L = self.max_level
 
+        # For each level above the new node's level, find the closest node to update the entry point.
         for lc in range(L, l, -1):
             W = self._search_layer(node_id, ep, 1, lc)
-            if W:
+            if W:  # Update the entry point for the next lower level if neighbors are found.
                 ep = W[0]
 
+        # Connect the new node to its neighbors at each level from its level down to 0.
         for lc in range(min(L, l), -1, -1):
             W = self._search_layer(node_id, ep, self.efConstruction, lc)
             neighbors = self._select_neighbors_simple(node_id, W, self.M if lc < l else self.Mmax)
             self._add_node(node_id, lc, neighbors)
 
+            # If any neighbor has more connections than allowed, select the best connections based on distance.
             for neighbor_id in neighbors:
                 all_neighbors = list(self.edges[neighbor_id].get(lc, set()))
                 if len(all_neighbors) > self.Mmax:
@@ -146,15 +227,26 @@ class HNSW:
                         if n not in new_neighbors:
                             self.edges[n][lc].discard(neighbor_id)
 
-
-        # Update the entry point if the new node's level is higher
+        # If the new node's level is higher than the graph's current max level, update the entry point.
         if l > L:
             self.enter_point = node_id
-            
-        return node_id
+
+        return node_id  # Return the ID of the newly inserted node.
+
 
 
     def k_nn_search(self, q_data, K, ef):
+        """
+        Performs a k-nearest neighbor search for the given query data.
+
+        Parameters:
+        - q_data (np.ndarray): The query data (vector embedding).
+        - K (int): The number of nearest neighbors to find.
+        - ef (int): The size of the dynamic candidate list during the search.
+
+        Returns:
+        - list: A list of the K nearest neighbor data.
+        """
         # print(self.nodes)
         # Check if there are any nodes in the graph
         if not self.nodes:
@@ -193,39 +285,6 @@ class HNSW:
             self.next_id -= 1
 
         return nearest_neighbors
-    
-    # def get_text_from_node(self, node, chunk_dir):
-    #     with open(f"{os.path.join(chunk_dir, node.doc_id)}/chunk_{node.id}.txt", "r", encoding="utf-8") as chunk_file:
-    #         return chunk_file.read()
-            
-    # def update_index_from_doc_dir(self, chunk_dir, doc_id):
-    #     directory_path = os.path.join(chunk_dir, doc_id)
-    #     for i, filename in enumerate(os.listdir(directory_path)):
-    #         file_path = os.path.join(directory_path, filename)
-    #         if os.path.isfile(file_path):
-    #             with open(file_path, 'r', encoding='utf-8') as file:
-    #                 text = file.read()
-    #                 emb = self.model.encode(text)
-    #                 self.add_point(emb, i, doc_id=doc_id)
-    #     return 
-    
-    # def update_index_from_chunk_dir(self, chunk_dir):
-    #     for doc_id in os.listdir(chunk_dir):
-    #         path = os.path.join(chunk_dir, doc_id)
-    #         if os.path.isdir(path):
-    #             self.update_index_from_doc_dir(chunk_dir=chunk_dir, doc_id=doc_id)
-
-    # def save_index(self, filename):
-    #     with open(filename, 'wb') as file:
-    #         # Directly use self to refer to the current HNSW index instance
-    #         pickle.dump(self, file)
-                        
-    # @classmethod
-    # def load_index(cls, filename='hnsw_index.pkl'):
-    #     with open(filename, 'rb') as file:
-    #         loaded_index = pickle.load(file)
-    #     print(f"Index loaded from {filename}.")
-    #     return loaded_index
 
 
 # # Example usage
