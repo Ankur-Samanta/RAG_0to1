@@ -6,6 +6,10 @@ The language model, powered by a Mistral-based chat interface, generates a respo
 
 Additionally, the system offers functionalities for managing the document repository, including file upload, deletion, and listing, through a FastAPI framework. The interactive script allows for command-line interaction with the API, facilitating operations like file management and response generation.
 
+Flow:
+Deploy -> Data_Ingestion -> Query_Processing -> Semantic_Search -> Post_Processing -> Generation -> Deploy
+
 To use this system, proceed to Deploy/ and refer to its readme.
 
 Ankur Samanta
+

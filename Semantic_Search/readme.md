@@ -13,3 +13,5 @@ Upon receiving a query, the system preprocesses and converts the query text into
 The system is designed with flexibility and scalability in mind. Nodes can be added to the graph dynamically as new text chunks are processed, allowing the index to grow and adapt to new data over time. Furthermore, the implementation supports efficient k-nearest neighbor searches, enabling it to retrieve the top-k most relevant text chunks in response to a query.
 
 Note: The HNSW implementation has certain parameters which require tuning and optimization - due to time constraints, the default parameters are just initial values set for testing, and have not been optimized for best results, just functionality.
+
+I did not implement the semantic + keyword combined search, but a simple way to implement this is to have a separate keyword-search system to query the text chunk database and retrieve the top k text chunks based on keyword matching. I would then merge the results of the semantic and keyword search systems (removing any duplicates) and pass them into the reranker to get the sorted top n chunks.
