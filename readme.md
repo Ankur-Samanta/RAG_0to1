@@ -11,5 +11,4 @@ Deploy -> Data_Ingestion -> Query_Processing -> Semantic_Search -> Post_Processi
 
 To use this system, proceed to Deploy/ and refer to its readme.
 
-Ankur Samanta
-
+Copyright (2024) - Ankur Samanta - All Rights Reserved
